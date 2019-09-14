@@ -1,5 +1,5 @@
-CXX = g++
+CXX = gcc
 LIBS = -lSDL -lm
 
-clockorange: clockorange.cpp
-	$(CXX) $@.cpp $(LIBS) -o $@
+clockorange: clockorange.c
+	$(CXX) $@.c $(LIBS) -o $@

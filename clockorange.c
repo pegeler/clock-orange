@@ -79,8 +79,7 @@ int main(void)
   SDL_Event event;
   time_t t;
   struct tm *tm;
-  bool run=true;
-  unsigned short int current_sec=0;
+  int current_sec=0;
   const double radius=0.45;
   double
     sec_x=0, sec_y=0,
@@ -136,11 +135,11 @@ int main(void)
   }
 
   // Loop to refresh time and draw hands
-  while(run) {
+  while (1) {
 
     // Housekeeping for exit criteria
     if(SDL_PollEvent(&event) && event.type==SDL_KEYDOWN)
-      run = false;
+      break;
 
     // Get time
     time(&t);
