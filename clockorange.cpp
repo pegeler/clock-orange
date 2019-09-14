@@ -80,6 +80,7 @@ int main(void)
   time_t t;
   struct tm *tm;
   bool run=true;
+  unsigned short int current_sec=0;
   const double radius=0.45;
   double
     sec_x=0, sec_y=0,
@@ -137,43 +138,57 @@ int main(void)
   // Loop to refresh time and draw hands
   while(run) {
 
-    // Clear previously drawn hands
-    draw_line(ORANGE,img_width/2,img_height/2,sec_x,sec_y);
-    draw_line(ORANGE,img_width/2,img_height/2,min_x,min_y);
-    draw_line(ORANGE,img_width/2,img_height/2,hour_x,hour_y);
+    // Housekeeping for exit criteria
+    if(SDL_PollEvent(&event) && event.type==SDL_KEYDOWN)
+      run = false;
 
     // Get time
     time(&t);
     tm = localtime(&t);
 
+    // Ensures no more than 30 FPS
+    if (tm->tm_sec == current_sec) {
+      usleep(32000);
+    continue;
+    } else {
+      current_sec = tm->tm_sec;
+    }
+
+    // Clear previously drawn hands
+    draw_line(ORANGE,img_width/2,img_height/2,sec_x,sec_y);
+    draw_line(ORANGE,img_width/2,img_height/2,min_x,min_y);
+    draw_line(ORANGE,img_width/2,img_height/2,hour_x,hour_y);
+
     // Draw hands
-    // TODO Make hour and minute hands gradually roll rather than tick.
     sec_x = cos(  2*M_PI*tm->tm_sec / 60 - M_PI / 2  ) *
             img_width * 0.4 + img_width / 2;
     sec_y = sin(  2*M_PI*tm->tm_sec / 60 - M_PI / 2  ) *
             img_height * 0.4 + img_height / 2;
     draw_line(WHITE,img_width/2,img_height/2,sec_x,sec_y);
 
-    min_x = cos(  2*M_PI*tm->tm_min / 60 - M_PI / 2  ) *
+    min_x = cos(  2*M_PI*(tm->tm_min
+                          + (double) tm->tm_sec / 60)
+                  / 60 - M_PI / 2  ) *
             img_width * 0.4 + img_width / 2;
-    min_y = sin(  2*M_PI*tm->tm_min / 60 - M_PI / 2  ) *
+    min_y = sin(  2*M_PI*(tm->tm_min
+                          + (double) tm->tm_sec / 60)
+                  / 60 - M_PI / 2  ) *
             img_height * 0.4 + img_height / 2;
     draw_line(BLACK,img_width/2,img_height/2,min_x,min_y);
 
-    hour_x = cos(  2*M_PI*(tm->tm_hour % 12) / 12 - M_PI / 2  ) *
+    hour_x = cos(  2*M_PI*((tm->tm_hour % 12)
+                            + (double) tm->tm_min / 60
+                            + (double) tm->tm_sec / 3600)
+                   / 12 - M_PI / 2  ) *
              img_width * 0.25 + img_width / 2;
-    hour_y = sin(  2*M_PI*(tm->tm_hour % 12) / 12 - M_PI / 2  ) *
+    hour_y = sin(  2*M_PI*((tm->tm_hour % 12)
+                            + (double) tm->tm_min / 60
+                            + (double) tm->tm_sec / 3600)
+                   / 12 - M_PI / 2  ) *
              img_height * 0.25 + img_height / 2;
     draw_line(BLACK,img_width/2,img_height/2,hour_x,hour_y);
 
-    // Ensures no more than 30 FPS
-    usleep(32000);
-
     SDL_Flip(surface);
-
-    // Housekeeping for exit criteria
-    if(SDL_PollEvent(&event) && event.type==SDL_KEYDOWN)
-      run = false;
 
   }
 
