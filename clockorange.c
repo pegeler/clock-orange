@@ -17,51 +17,67 @@
 unsigned int *img;
 const unsigned int img_width=600, img_height=600;
 
-void draw_pixel(int color,
-                int x,
-                int y)
+struct Point
 {
-  if(x >= 0 && x < img_width && y >= 0 && y < img_height)
-    img[img_width*y+x] = color;
+  int x, y;
+};
+
+void draw_pixel(int color, struct Point p)
+{
+  if( p.x >= 0 && p.x < img_width && p.y >= 0 && p.y < img_height )
+    img[img_width * p.y + p.x] = color;
 }
 
-void draw_line(int color,
-               int x1,
-               int y1,
-               int x2,
-               int y2)
+void draw_line(int color, struct Point p1, struct Point p2)
 {
   int direction, slope, x_len, y_len, b;
 
-  if(x1 == x2 && y1 == y2) {
-    draw_pixel(x1, y1, color);
-    return;
-  }
+  x_len = abs(p2.x - p1.x);
+  y_len = abs(p2.y - p1.y);
 
-  x_len = abs(x2 - x1);
-  y_len = abs(y2 - y1);
+  if(p1.x == p2.x) {                                     // Vertical line
+    if (p1.y == p2.y) { draw_pixel(color, p1); return; } // Single pixel
 
-  if(x_len >= y_len) {
-    direction = x2 > x1 ? 1 : -1;
-    slope = ((y2 - y1) << 16) / x_len;
-    b = y1 << 16;
-
-    for(int a=0; a <= x_len; a++)
+    direction = p2.y > p1.y ? 1 : -1;
+    for (int a=0; a <= y_len; a++)
     {
-      draw_pixel(color, x1, b >> 16);
-      b  += slope;
-      x1 += direction;
+      draw_pixel(color, p1);
+      p1.y += direction;
     }
-  } else {
-    direction = y2 > y1 ? 1 : -1;
-    slope = ((x2 - x1) << 16) / y_len;
-    b = x1 << 16;
 
-    for(int a=0; a <= y_len; a++)
+  } else if (p1.y == p2.y) {                            // Horizontal line
+    direction = p2.x > p1.x ? 1 : -1;
+
+    for (int a=0; a <= x_len; a++)
     {
-      draw_pixel(color, b >> 16, y1);
-      b  += slope;
-      y1 += direction;
+      draw_pixel(color, p1);
+      p1.x += direction;
+    }
+
+  } else if(x_len >= y_len) {                           // Diagonal, x longer
+    direction = p2.x > p1.x ? 1 : -1;
+    slope = ((p2.y - p1.y) << 16) / x_len;
+    b = p1.y << 16;
+
+    for (int a=0; a <= x_len; a++)
+    {
+      p1.y = b >> 16;
+      draw_pixel(color, p1);
+      b += slope;
+      p1.x += direction;
+    }
+
+  } else {                                              // Diagonal, y longer
+    direction = p2.y > p1.y ? 1 : -1;
+    slope = ((p2.x - p1.x) << 16) / y_len;
+    b = p1.x << 16;
+
+    for (int a=0; a <= y_len; a++)
+    {
+      p1.x = b >> 16;
+      draw_pixel(color, p1);
+      b += slope;
+      p1.y += direction;
     }
   }
 
@@ -69,7 +85,7 @@ void draw_line(int color,
 
 void clear_screen(int color)
 {
-  for(int i=0; i <= img_height*img_width; i++)
+  for (int i=0; i <= img_height*img_width; i++)
     img[i]=color;
 }
 
@@ -81,12 +97,12 @@ int main(void)
   struct tm *tm;
   int current_sec=0;
   const double radius=0.45;
-  double
-    sec_x=0, sec_y=0,
-    min_x=0, min_y=0,
-    hour_x=0, hour_y=0,
-    x0=0,y0=0,
-    x1=0,y1=0;
+  struct Point
+    sec    = {           0,            0 },
+    min    = {           0,            0 },
+    hour   = {           0,            0 };
+  const struct Point
+    origin = { img_width/2, img_height/2 };
 
   // Initialize SDL Video
   if(SDL_Init(SDL_INIT_VIDEO)==-1) exit(1);
@@ -105,18 +121,12 @@ int main(void)
   #define N_POINTS 2160
   for (int i=0; i <= N_POINTS; i++)
   {
-    /* This leaves bare spots.
-    for (int i=-270; i <= 270; i++)
-    x0 = i + img_width / 2;
-    y0 = sqrt(pow(270,2) - pow(i, 2)) + img_height / 2;
-    draw_pixel(BLACK, x0, y0);
-    */
+    struct Point p;
 
-    draw_pixel(BLACK,
-               cos(i*2*M_PI/N_POINTS) * img_width * radius + img_width / 2,
-               sin(i*2*M_PI/N_POINTS) * img_height * radius + img_height / 2);
+    p.x = cos(i*2*M_PI/N_POINTS) * img_width  * radius + origin.x;
+    p.y = sin(i*2*M_PI/N_POINTS) * img_height * radius + origin.y;
 
-
+    draw_pixel(BLACK, p);
   }
 
   // Draw hash marks
@@ -126,12 +136,13 @@ int main(void)
     tick = i % 5 ? 0.43 : 0.41;
     theta = i*2*M_PI/60;
 
-    x0 = cos(theta) * img_width  * tick + img_width    / 2;
-    y0 = sin(theta) * img_height * tick + img_height   / 2;
-    x1 = cos(theta) * img_width  * radius + img_width  / 2;
-    y1 = sin(theta) * img_height * radius + img_height / 2;
+    struct Point outer, inner;
+    inner.x = cos(theta) * img_width  * tick   + origin.x;
+    inner.y = sin(theta) * img_height * tick   + origin.y;
+    outer.x = cos(theta) * img_width  * radius + origin.x;
+    outer.y = sin(theta) * img_height * radius + origin.y;
 
-    draw_line(BLACK,x0,y0,x1,y1);
+    draw_line(BLACK, inner, outer);
   }
 
   // Loop to refresh time and draw hands
@@ -148,44 +159,44 @@ int main(void)
     // Ensures no more than 30 FPS
     if (tm->tm_sec == current_sec) {
       usleep(32000);
-    continue;
+      continue;
     } else {
       current_sec = tm->tm_sec;
     }
 
     // Clear previously drawn hands
-    draw_line(ORANGE,img_width/2,img_height/2,sec_x,sec_y);
-    draw_line(ORANGE,img_width/2,img_height/2,min_x,min_y);
-    draw_line(ORANGE,img_width/2,img_height/2,hour_x,hour_y);
+    draw_line(ORANGE, origin, sec);
+    draw_line(ORANGE, origin, min);
+    draw_line(ORANGE, origin, hour);
 
     // Draw hands
-    sec_x = cos(  2*M_PI*tm->tm_sec / 60 - M_PI / 2  ) *
-            img_width * 0.4 + img_width / 2;
-    sec_y = sin(  2*M_PI*tm->tm_sec / 60 - M_PI / 2  ) *
-            img_height * 0.4 + img_height / 2;
-    draw_line(WHITE,img_width/2,img_height/2,sec_x,sec_y);
+    sec.x = cos(  2*M_PI*tm->tm_sec / 60 - M_PI / 2  ) *
+            img_width * 0.4 + origin.x;
+    sec.y = sin(  2*M_PI*tm->tm_sec / 60 - M_PI / 2  ) *
+            img_height * 0.4 + origin.y;
+    draw_line(WHITE, origin, sec);
 
-    min_x = cos(  2*M_PI*(tm->tm_min
+    min.x = cos(  2*M_PI*(tm->tm_min
                           + (double) tm->tm_sec / 60)
                   / 60 - M_PI / 2  ) *
-            img_width * 0.4 + img_width / 2;
-    min_y = sin(  2*M_PI*(tm->tm_min
+            img_width * 0.4 + origin.x;
+    min.y = sin(  2*M_PI*(tm->tm_min
                           + (double) tm->tm_sec / 60)
                   / 60 - M_PI / 2  ) *
-            img_height * 0.4 + img_height / 2;
-    draw_line(BLACK,img_width/2,img_height/2,min_x,min_y);
+            img_height * 0.4 + origin.y;
+    draw_line(BLACK, origin, min);
 
-    hour_x = cos(  2*M_PI*((tm->tm_hour % 12)
+    hour.x = cos(  2*M_PI*((tm->tm_hour % 12)
                             + (double) tm->tm_min / 60
                             + (double) tm->tm_sec / 3600)
                    / 12 - M_PI / 2  ) *
-             img_width * 0.25 + img_width / 2;
-    hour_y = sin(  2*M_PI*((tm->tm_hour % 12)
+             img_width * 0.25 + origin.x;
+    hour.y = sin(  2*M_PI*((tm->tm_hour % 12)
                             + (double) tm->tm_min / 60
                             + (double) tm->tm_sec / 3600)
                    / 12 - M_PI / 2  ) *
-             img_height * 0.25 + img_height / 2;
-    draw_line(BLACK,img_width/2,img_height/2,hour_x,hour_y);
+             img_height * 0.25 + origin.y;
+    draw_line(BLACK, origin, hour);
 
     SDL_Flip(surface);
 
