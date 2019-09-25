@@ -22,9 +22,14 @@ struct Point
   int x, y;
 };
 
+struct Colors
+{
+  int bg, fg, ac;
+};
+
 void draw_pixel(int color, struct Point p)
 {
-  if( p.x >= 0 && p.x < img_width && p.y >= 0 && p.y < img_height )
+  if ( p.x >= 0 && p.x < img_width && p.y >= 0 && p.y < img_height )
     img[img_width * p.y + p.x] = color;
 }
 
@@ -35,7 +40,7 @@ void draw_line(int color, struct Point p1, struct Point p2)
   x_len = abs(p2.x - p1.x);
   y_len = abs(p2.y - p1.y);
 
-  if(p1.x == p2.x) {                                     // Vertical line
+  if (p1.x == p2.x) {                                     // Vertical line
     if (p1.y == p2.y) { draw_pixel(color, p1); return; } // Single pixel
 
     direction = p2.y > p1.y ? 1 : -1;
@@ -54,7 +59,7 @@ void draw_line(int color, struct Point p1, struct Point p2)
       p1.x += direction;
     }
 
-  } else if(x_len >= y_len) {                           // Diagonal, x longer
+  } else if (x_len >= y_len) {                           // Diagonal, x longer
     direction = p2.x > p1.x ? 1 : -1;
     slope = ((p2.y - p1.y) << 16) / x_len;
     b = p1.y << 16;
@@ -103,56 +108,102 @@ int main(void)
     hour   = {           0,            0 };
   const struct Point
     origin = { img_width/2, img_height/2 };
+  struct Colors
+    colors = {      ORANGE,        BLACK,        WHITE };
 
   // Initialize SDL Video
-  if(SDL_Init(SDL_INIT_VIDEO)==-1) exit(1);
+  if (SDL_Init(SDL_INIT_VIDEO)==-1) exit(1);
   atexit(SDL_Quit);
   surface = SDL_SetVideoMode(img_width,
                              img_height,
                              32,
                              SDL_SWSURFACE|SDL_NOFRAME);
-  if(surface == NULL) exit(1);
+  if (surface == NULL) exit(1);
   img = (unsigned int *) surface->pixels;
 
-  // Set background color
-  clear_screen(ORANGE);
-
-  // Draw outline of circle
-  #define N_POINTS 2160
-  for (int i=0; i <= N_POINTS; i++)
-  {
-    struct Point p;
-
-    p.x = cos(i*2*M_PI/N_POINTS) * img_width  * radius + origin.x;
-    p.y = sin(i*2*M_PI/N_POINTS) * img_height * radius + origin.y;
-
-    draw_pixel(BLACK, p);
-  }
-
-  // Draw hash marks
-  for (int i=0; i < 60; i++)
-  {
-    double theta, tick;
-    tick = i % 5 ? 0.43 : 0.41;
-    theta = i*2*M_PI/60;
-
-    struct Point outer, inner;
-    inner.x = cos(theta) * img_width  * tick   + origin.x;
-    inner.y = sin(theta) * img_height * tick   + origin.y;
-    outer.x = cos(theta) * img_width  * radius + origin.x;
-    outer.y = sin(theta) * img_height * radius + origin.y;
-
-    draw_line(BLACK, inner, outer);
-  }
-
   // Loop to refresh time and draw hands
-  while (1) {
+  int quit = 0;
+  while (!quit) {
 
     // Housekeeping for exit criteria
-    if (SDL_PollEvent(&event) &&
-        event.type==SDL_KEYDOWN &&
-        event.key.keysym.sym ==  SDLK_SPACE)
-      break;
+    while (SDL_PollEvent(&event))
+    {
+      if (event.type==SDL_KEYDOWN)
+        switch (event.key.keysym.sym)
+        {
+          case SDLK_SPACE:
+            quit++;
+            break;
+
+          // github.com/pegeler/heaps
+          case SDLK_1:
+            colors.bg = ORANGE;
+            colors.fg = BLACK;
+            colors.ac = WHITE;
+            break;
+
+          case SDLK_2:
+            colors.bg = BLACK;
+            colors.fg = ORANGE;
+            colors.ac = WHITE;
+            break;
+
+          case SDLK_3:
+            colors.bg = WHITE;
+            colors.fg = ORANGE;
+            colors.ac = BLACK;
+            break;
+
+          case SDLK_4:
+            colors.bg = ORANGE;
+            colors.fg = WHITE;
+            colors.ac = BLACK;
+            break;
+
+          case SDLK_5:
+            colors.bg = BLACK;
+            colors.fg = WHITE;
+            colors.ac = ORANGE;
+            break;
+
+          case SDLK_6:
+            colors.bg = WHITE;
+            colors.fg = BLACK;
+            colors.ac = ORANGE;
+            break;
+        }
+    }
+
+    // Set background color
+    clear_screen(colors.bg);
+
+    // Draw outline of circle
+    #define N_POINTS 2160
+    for (int i=0; i <= N_POINTS; i++)
+    {
+      struct Point p;
+
+      p.x = cos(i*2*M_PI/N_POINTS) * img_width  * radius + origin.x;
+      p.y = sin(i*2*M_PI/N_POINTS) * img_height * radius + origin.y;
+
+      draw_pixel(colors.fg, p);
+    }
+
+    // Draw hash marks
+    for (int i=0; i < 60; i++)
+    {
+      double theta, tick;
+      tick = i % 5 ? 0.43 : 0.41;
+      theta = i*2*M_PI/60;
+
+      struct Point outer, inner;
+      inner.x = cos(theta) * img_width  * tick   + origin.x;
+      inner.y = sin(theta) * img_height * tick   + origin.y;
+      outer.x = cos(theta) * img_width  * radius + origin.x;
+      outer.y = sin(theta) * img_height * radius + origin.y;
+
+      draw_line(colors.fg, inner, outer);
+    }
 
     // Get time
     time(&t);
@@ -166,17 +217,12 @@ int main(void)
       current_sec = tm->tm_sec;
     }
 
-    // Clear previously drawn hands
-    draw_line(ORANGE, origin, sec);
-    draw_line(ORANGE, origin, min);
-    draw_line(ORANGE, origin, hour);
-
     // Draw hands
     sec.x = cos(  2*M_PI*tm->tm_sec / 60 - M_PI / 2  ) *
             img_width * 0.4 + origin.x;
     sec.y = sin(  2*M_PI*tm->tm_sec / 60 - M_PI / 2  ) *
             img_height * 0.4 + origin.y;
-    draw_line(WHITE, origin, sec);
+    draw_line(colors.ac, origin, sec);
 
     min.x = cos(  2*M_PI*(tm->tm_min
                           + (double) tm->tm_sec / 60)
@@ -186,7 +232,7 @@ int main(void)
                           + (double) tm->tm_sec / 60)
                   / 60 - M_PI / 2  ) *
             img_height * 0.4 + origin.y;
-    draw_line(BLACK, origin, min);
+    draw_line(colors.fg, origin, min);
 
     hour.x = cos(  2*M_PI*((tm->tm_hour % 12)
                             + (double) tm->tm_min / 60
@@ -198,7 +244,7 @@ int main(void)
                             + (double) tm->tm_sec / 3600)
                    / 12 - M_PI / 2  ) *
              img_height * 0.25 + origin.y;
-    draw_line(BLACK, origin, hour);
+    draw_line(colors.fg, origin, hour);
 
     SDL_Flip(surface);
 
