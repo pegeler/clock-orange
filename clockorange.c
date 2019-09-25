@@ -69,7 +69,7 @@ void draw_line(int color,
 
 void clear_screen(int color)
 {
-  for(int i=0; i <= img_height*img_width; i++)
+  for(int i=0; i < img_height*img_width; i++)
     img[i]=color;
 }
 
@@ -138,7 +138,9 @@ int main(void)
   while (1) {
 
     // Housekeeping for exit criteria
-    if(SDL_PollEvent(&event) && event.type==SDL_KEYDOWN)
+    if (SDL_PollEvent(&event) &&
+        event.type==SDL_KEYDOWN &&
+        event.key.keysym.sym ==  SDLK_SPACE)
       break;
 
     // Get time
