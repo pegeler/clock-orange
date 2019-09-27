@@ -1,4 +1,5 @@
 // A Clockwork Orange
+// Paul Egeler
 // 31 Jan 2012
 // revised 14 Sep 2019
 
@@ -40,7 +41,7 @@ void draw_line(int color, struct Point p1, struct Point p2)
   x_len = abs(p2.x - p1.x);
   y_len = abs(p2.y - p1.y);
 
-  if (p1.x == p2.x) {                                     // Vertical line
+  if (p1.x == p2.x) {                                    // Vertical line
     if (p1.y == p2.y) { draw_pixel(color, p1); return; } // Single pixel
 
     direction = p2.y > p1.y ? 1 : -1;
@@ -50,7 +51,7 @@ void draw_line(int color, struct Point p1, struct Point p2)
       p1.y += direction;
     }
 
-  } else if (p1.y == p2.y) {                            // Horizontal line
+  } else if (p1.y == p2.y) {                             // Horizontal line
     direction = p2.x > p1.x ? 1 : -1;
 
     for (int a=0; a <= x_len; a++)
@@ -72,7 +73,7 @@ void draw_line(int color, struct Point p1, struct Point p2)
       p1.x += direction;
     }
 
-  } else {                                              // Diagonal, y longer
+  } else {                                               // Diagonal, y longer
     direction = p2.y > p1.y ? 1 : -1;
     slope = ((p2.x - p1.x) << 16) / y_len;
     b = p1.x << 16;
@@ -117,92 +118,120 @@ int main(void)
   surface = SDL_SetVideoMode(img_width,
                              img_height,
                              32,
-                             SDL_SWSURFACE|SDL_NOFRAME);
+                             SDL_SWSURFACE);
+  SDL_WM_SetCaption("A Clockwork Orange", NULL);
   if (surface == NULL) exit(1);
   img = (unsigned int *) surface->pixels;
 
   // Loop to refresh time and draw hands
-  int quit = 0;
-  while (!quit) {
+  int redraw = 1;
+  while (1) {
 
     // Housekeeping for exit criteria
     while (SDL_PollEvent(&event))
     {
+      if (event.type==SDL_QUIT) exit(0);
+
       if (event.type==SDL_KEYDOWN)
         switch (event.key.keysym.sym)
         {
+          // Exit criteria
           case SDLK_SPACE:
-            quit++;
+            exit(0);
             break;
 
-          // github.com/pegeler/heaps
+          case SDLK_ESCAPE:
+            exit(0);
+            break;
+
+          // All permutations of colors
+          // https://github.com/pegeler/heaps
           case SDLK_1:
             colors.bg = ORANGE;
             colors.fg = BLACK;
             colors.ac = WHITE;
+            redraw = 1;
             break;
 
           case SDLK_2:
             colors.bg = BLACK;
             colors.fg = ORANGE;
             colors.ac = WHITE;
+            redraw = 1;
             break;
 
           case SDLK_3:
             colors.bg = WHITE;
             colors.fg = ORANGE;
             colors.ac = BLACK;
+            redraw = 1;
             break;
 
           case SDLK_4:
             colors.bg = ORANGE;
             colors.fg = WHITE;
             colors.ac = BLACK;
+            redraw = 1;
             break;
 
           case SDLK_5:
             colors.bg = BLACK;
             colors.fg = WHITE;
             colors.ac = ORANGE;
+            redraw = 1;
             break;
 
           case SDLK_6:
             colors.bg = WHITE;
             colors.fg = BLACK;
             colors.ac = ORANGE;
+            redraw = 1;
             break;
         }
     }
 
-    // Set background color
-    clear_screen(colors.bg);
+    if (redraw) {
 
-    // Draw outline of circle
-    #define N_POINTS 2160
-    for (int i=0; i <= N_POINTS; i++)
-    {
-      struct Point p;
+      // Set background color
+      clear_screen(colors.bg);
 
-      p.x = cos(i*2*M_PI/N_POINTS) * img_width  * radius + origin.x;
-      p.y = sin(i*2*M_PI/N_POINTS) * img_height * radius + origin.y;
+      // Draw outline of circle
+      #define N_POINTS 2160
+      for (int i=0; i <= N_POINTS; i++)
+      {
+        struct Point p;
 
-      draw_pixel(colors.fg, p);
-    }
+        p.x = cos(i*2*M_PI/N_POINTS) * img_width  * radius + origin.x;
+        p.y = sin(i*2*M_PI/N_POINTS) * img_height * radius + origin.y;
 
-    // Draw hash marks
-    for (int i=0; i < 60; i++)
-    {
-      double theta, tick;
-      tick = i % 5 ? 0.43 : 0.41;
-      theta = i*2*M_PI/60;
+        draw_pixel(colors.fg, p);
+      }
 
-      struct Point outer, inner;
-      inner.x = cos(theta) * img_width  * tick   + origin.x;
-      inner.y = sin(theta) * img_height * tick   + origin.y;
-      outer.x = cos(theta) * img_width  * radius + origin.x;
-      outer.y = sin(theta) * img_height * radius + origin.y;
+      // Draw hash marks
+      for (int i=0; i < 60; i++)
+      {
+        double theta, tick;
+        tick = i % 5 ? 0.43 : 0.41;
+        theta = i*2*M_PI/60;
 
-      draw_line(colors.fg, inner, outer);
+        struct Point outer, inner;
+        inner.x = cos(theta) * img_width  * tick   + origin.x;
+        inner.y = sin(theta) * img_height * tick   + origin.y;
+        outer.x = cos(theta) * img_width  * radius + origin.x;
+        outer.y = sin(theta) * img_height * radius + origin.y;
+
+        draw_line(colors.fg, inner, outer);
+      }
+
+      redraw = 0;
+
+    } else {
+
+      // Just draw over current hands with bg color
+      draw_line(colors.bg, origin, sec);
+      draw_line(colors.bg, origin, min);
+      draw_line(colors.bg, origin, hour);
+
     }
 
     // Get time
@@ -211,7 +240,7 @@ int main(void)
 
     // Ensures no more than 30 FPS
     if (tm->tm_sec == current_sec) {
-      usleep(32000);
+      usleep(3e5);
       continue;
     } else {
       current_sec = tm->tm_sec;
@@ -250,6 +279,6 @@ int main(void)
 
   }
 
- return 0;
+  return 0;
 
 }
