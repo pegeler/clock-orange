@@ -1,5 +1,6 @@
 CXX = gcc
 LIBS = -lSDL -lm
+CXX_FLAGS = -O2
 
-clockorange: clockorange.c
-	$(CXX) $@.c $(LIBS) -o $@
+clock: clock.c
+	$(CXX) $(CXX_FLAGS) $@.c $(LIBS) -o $@
